@@ -54,7 +54,7 @@ async def convert_image(
         output_buffer.seek(0)
         
         if output_filename:
-            clean_filename = "".join(c for c in output_filename if c.isalnum() or c in (' ', '_', '-')).rstrip()
+            clean_filename = "".join(c for c in output_filename if c.isalnum() or c in (' ', '-')).rstrip()
             new_filename = f"{clean_filename or 'converted'}.{format_key}"
         else:
             original_name = file.filename.rsplit('.', 1)[0]
