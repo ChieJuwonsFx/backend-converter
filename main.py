@@ -11,6 +11,7 @@ app = FastAPI(title="Image Converter API")
 origins = [
     "http://localhost:5173",
     "http://localhost:3000",
+    "conconverter.innovixus.my.id"
 ]
 
 app.add_middleware(
