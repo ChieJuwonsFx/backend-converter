@@ -5,6 +5,9 @@ from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from starlette.responses import Response
+from dotenv import load_dotenv
+load_dotenv()
+
 
 app = FastAPI(title="Image Converter API")
 
