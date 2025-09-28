@@ -1,14 +1,25 @@
 import io
+import os
+import httpx
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from starlette.responses import Response
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI(title="Image Converter API")
 
+RECAPTCHA_SECRET_KEY = os.getenv("RECAPTCHA_SECRET_KEY")
+if not RECAPTCHA_SECRET_KEY:
+    raise RuntimeError("RECAPTCHA_SECRET_KEY not set in environment variables")
+
 origins = [
-    "http://localhost:5173",
-    "http://localhost:3000",
+    "http://localhost:5173", 
+    "http://localhost:3000", 
+    "https://converter.innovixus.my.id", 
+    "https://innovixus.my.id",    
 ]
 
 app.add_middleware(
@@ -20,19 +31,40 @@ app.add_middleware(
     expose_headers=["Content-Disposition"],
 )
 
+async def verify_recaptcha(token: str) -> bool:
+    """Verify reCAPTCHA token ke Google API"""
+    url = "https://www.google.com/recaptcha/api/siteverify"
+    data = {
+        "secret": RECAPTCHA_SECRET_KEY,
+        "response": token,
+    }
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(url, data=data)
+        result = resp.json()
+    return result.get("success", False)
+
 @app.post("/convert/", tags=["Image Conversion"])
 async def convert_image(
     file: UploadFile = File(...), 
     target_format: str = Form(...),
-    output_filename: str = Form(None)
+    output_filename: str = Form(None),
+    g_recaptcha_response: str = Form(...),  
 ):
+    is_human = await verify_recaptcha(g_recaptcha_response)
+    if not is_human:
+        raise HTTPException(status_code=400, detail="reCAPTCHA validation failed")
+
     supported_formats = {
         "webp": "WEBP", "jpeg": "JPEG", "png": "PNG",
         "ico": "ICO", "gif": "GIF"
     }
     
     if target_format.lower() not in supported_formats:
-        raise HTTPException(status_code=400, detail=f"Target format '{target_format}' is not supported.")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Target format '{target_format}' is not supported."
+        )
 
     try:
         contents = await file.read()
@@ -46,14 +78,17 @@ async def convert_image(
             img = img.convert('RGB')
         
         if format_key == 'ico':
-            img.save(output_buffer, format=pil_format, sizes=[(16,16), (32,32), (48,48), (64,64)])
+            img.save(output_buffer, format=pil_format,
+                     sizes=[(16,16), (32,32), (48,48), (64,64)])
         else:
             img.save(output_buffer, format=pil_format, quality=85)
         
         output_buffer.seek(0)
         
         if output_filename and output_filename.strip():
-            clean_name = "".join(c for c in output_filename if c.isalnum() or c in (' ', '_', '-')).strip()
+            clean_name = "".join(
+                c for c in output_filename if c.isalnum() or c in (' ', '_', '-')
+            ).strip()
             new_filename = f"{clean_name or 'converted'}.{format_key}"
         else:
             original_name = file.filename.rsplit('.', 1)[0]
@@ -67,7 +102,10 @@ async def convert_image(
             headers=headers
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred during conversion: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred during conversion: {str(e)}"
+        )
 
 @app.get("/", tags=["Root"])
 async def read_root():
