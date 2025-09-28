@@ -22,11 +22,10 @@ app.add_middleware(
 
 @app.post("/convert/", tags=["Image Conversion"])
 async def convert_image(
-    file: UploadFile = File(..., description="Image file to be converted."), 
-    target_format: str = Form(..., description="Target format (e.g., webp, jpeg, ico)."),
-    output_filename: str = Form(None, description="Optional desired output filename (without extension).")
+    file: UploadFile = File(...), 
+    target_format: str = Form(...),
+    output_filename: str = Form(None)
 ):
-
     supported_formats = {
         "webp": "WEBP", "jpeg": "JPEG", "png": "PNG",
         "ico": "ICO", "gif": "GIF"
@@ -43,7 +42,7 @@ async def convert_image(
         format_key = target_format.lower()
         pil_format = supported_formats[format_key]
 
-        if img.mode in ['RGBA', 'LA'] and format_key in ['jpeg']:
+        if img.mode in ['RGBA', 'LA'] and format_key == 'jpeg':
             img = img.convert('RGB')
         
         if format_key == 'ico':
@@ -53,13 +52,13 @@ async def convert_image(
         
         output_buffer.seek(0)
         
-        if output_filename:
-            clean_filename = "".join(c for c in output_filename if c.isalnum() or c in (' ', '_', '-')).rstrip()
-            new_filename = f"{clean_filename or 'converted'}.{format_key}"
+        if output_filename and output_filename.strip():
+            clean_name = "".join(c for c in output_filename if c.isalnum() or c in (' ', '_', '-')).strip()
+            new_filename = f"{clean_name or 'converted'}.{format_key}"
         else:
             original_name = file.filename.rsplit('.', 1)[0]
             new_filename = f"{original_name}.{format_key}"
-        
+
         headers = {'Content-Disposition': f'attachment; filename="{new_filename}"'}
 
         return Response(
