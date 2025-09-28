@@ -15,7 +15,7 @@ app = FastAPI(title="Image Converter API")
 origins = [
     "http://localhost:5173",
     "http://localhost:3000",
-    "converter.innovixus.my.id"
+    "https://converter.innovixus.my.id"
 ]
 
 app.add_middleware(
@@ -31,8 +31,7 @@ RECAPTCHA_SECRET_KEY = os.getenv("RECAPTCHA_SECRET_KEY")
 if not RECAPTCHA_SECRET_KEY:
     raise RuntimeError("RECAPTCHA_SECRET_KEY not set in environment variables.")
 
-def verify_recaptcha(token: str):
-    """Verify reCAPTCHA token with Google Invisible v2 API"""
+def verify_recaptcha(token: str):    
     url = "https://www.google.com/recaptcha/api/siteverify"
     data = {
         "secret": RECAPTCHA_SECRET_KEY,
@@ -40,9 +39,11 @@ def verify_recaptcha(token: str):
     }
     resp = requests.post(url, data=data)
     result = resp.json()
-
+    
+    print("📋 reCAPTCHA result:", result)
+    
     if not result.get("success"):
-        raise HTTPException(status_code=400, detail="reCAPTCHA validation failed.")
+        raise HTTPException(status_code=400, detail=f"reCAPTCHA validation failed: {result}")
     return True
 
 @app.post("/convert/", tags=["Image Conversion"])
